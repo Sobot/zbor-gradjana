@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react'
-import { useSession } from 'next-auth/react'
+import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 
 interface FormData {
   name: string;
@@ -12,8 +12,14 @@ interface FormData {
   longitude: number;
 }
 
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+
 export default function RegistrationForm() {
-  const { data: session } = useSession()
+  const { data: session } = useSession();
   const [formData, setFormData] = useState<FormData>({
     name: '',
     municipality: '',
@@ -21,59 +27,73 @@ export default function RegistrationForm() {
     streetNumber: '',
     latitude: 0,
     longitude: 0,
-  })
-  const [loading, setLoading] = useState(false)
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const geocodeAddress = async () => {
-    if (!formData.municipality || !formData.streetName || !formData.streetNumber) {
-      alert('Молимо попуните сва поља адресе');
-      return false;
-    }
+  useEffect(() => {
+    // Load Google Maps JavaScript API
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`;
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
 
-    try {
-      const address = `${formData.streetName} ${formData.streetNumber}, ${formData.municipality}, Serbia`;
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-          address
-        )}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
-      );
-      const data = await response.json();
+    return () => {
+      document.head.removeChild(script);
+    };
+  }, []);
 
-      if (data.results && data.results[0]) {
-        const { lat, lng } = data.results[0].geometry.location;
-        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
-        return true;
-      } else {
-        alert('Није могуће пронаћи адресу. Молимо проверите унете податке.');
-        return false;
+  const geocodeAddress = async (): Promise<{ lat: number; lng: number }> => {
+    return new Promise((resolve, reject) => {
+      if (!window.google) {
+        reject(new Error('Google Maps API not loaded'));
+        return;
       }
-    } catch (error) {
-      console.error('Error geocoding address:', error);
-      alert('Дошло је до грешке приликом геокодирања адресе.');
-      return false;
-    }
+
+      const geocoder = new window.google.maps.Geocoder();
+      const address = `${formData.streetName} ${formData.streetNumber}, ${formData.municipality}, Serbia`;
+
+      geocoder.geocode({ address }, (results: any[], status: string) => {
+        if (status === 'OK' && results?.[0]) {
+          const location = results[0].geometry.location;
+          resolve({
+            lat: location.lat(),
+            lng: location.lng()
+          });
+        } else {
+          reject(new Error('Није могуће пронаћи адресу. Молимо проверите унете податке.'));
+        }
+      });
+    });
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    setError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!session?.user?.id) {
-      alert('Молимо пријавите се пре регистрације.');
+      setError('Молимо пријавите се пре регистрације.');
       return;
     }
 
     setLoading(true);
+    setError(null);
+
     try {
       // First, geocode the address
-      const geocoded = await geocodeAddress();
-      if (!geocoded) {
-        setLoading(false);
-        return;
-      }
+      const { lat, lng } = await geocodeAddress();
+      
+      // Update form data with coordinates
+      const updatedFormData = {
+        ...formData,
+        latitude: lat,
+        longitude: lng
+      };
 
       // Then submit the registration
       const response = await fetch('/api/registrations', {
@@ -82,13 +102,14 @@ export default function RegistrationForm() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...formData,
+          ...updatedFormData,
           userId: session.user.id,
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to submit registration');
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to submit registration');
       }
 
       alert('Успешно сте се пријавили за збор грађана!');
@@ -100,9 +121,8 @@ export default function RegistrationForm() {
         latitude: 0,
         longitude: 0,
       });
-    } catch (error) {
-      console.error('Error submitting registration:', error);
-      alert('Дошло је до грешке приликом подношења пријаве.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Дошло је до грешке приликом подношења пријаве.');
     } finally {
       setLoading(false);
     }
@@ -172,6 +192,12 @@ export default function RegistrationForm() {
         </div>
       </div>
 
+      {error && (
+        <div className="text-red-600 text-sm">
+          {error}
+        </div>
+      )}
+
       <div className="flex justify-end">
         <button
           type="submit"
@@ -182,5 +208,5 @@ export default function RegistrationForm() {
         </button>
       </div>
     </form>
-  )
+  );
 } 
