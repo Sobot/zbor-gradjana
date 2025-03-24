@@ -2,27 +2,14 @@
 
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api'
-
-const containerStyle = {
-  width: '100%',
-  height: '400px'
-}
-
-const center = {
-  lat: 44.787197, // Belgrade's latitude
-  lng: 20.457273  // Belgrade's longitude
-}
 
 interface FormData {
   name: string;
   municipality: string;
   streetName: string;
   streetNumber: string;
-  location: {
-    lat: number;
-    lng: number;
-  } | null;
+  latitude: number;
+  longitude: number;
 }
 
 export default function RegistrationForm() {
@@ -32,147 +19,168 @@ export default function RegistrationForm() {
     municipality: '',
     streetName: '',
     streetNumber: '',
-    location: null,
+    latitude: 0,
+    longitude: 0,
   })
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.location) {
-      alert('Молимо вас да изаберете локацију на мапи')
-      return
+  const geocodeAddress = async () => {
+    if (!formData.municipality || !formData.streetName || !formData.streetNumber) {
+      alert('Молимо попуните сва поља адресе');
+      return false;
     }
 
-    setLoading(true)
     try {
+      const address = `${formData.streetName} ${formData.streetNumber}, ${formData.municipality}, Serbia`;
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+          address
+        )}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+      );
+      const data = await response.json();
+
+      if (data.results && data.results[0]) {
+        const { lat, lng } = data.results[0].geometry.location;
+        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+        return true;
+      } else {
+        alert('Није могуће пронаћи адресу. Молимо проверите унете податке.');
+        return false;
+      }
+    } catch (error) {
+      console.error('Error geocoding address:', error);
+      alert('Дошло је до грешке приликом геокодирања адресе.');
+      return false;
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session?.user?.id) {
+      alert('Молимо пријавите се пре регистрације.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // First, geocode the address
+      const geocoded = await geocodeAddress();
+      if (!geocoded) {
+        setLoading(false);
+        return;
+      }
+
+      // Then submit the registration
       const response = await fetch('/api/registrations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
-      })
+        body: JSON.stringify({
+          ...formData,
+          userId: session.user.id,
+        }),
+      });
 
       if (!response.ok) {
-        throw new Error('Грешка при регистрацији')
+        throw new Error('Failed to submit registration');
       }
 
-      alert('Успешно сте се регистровали за збор грађана')
+      alert('Успешно сте се пријавили за збор грађана!');
       setFormData({
         name: '',
         municipality: '',
         streetName: '',
         streetNumber: '',
-        location: null,
-      })
+        latitude: 0,
+        longitude: 0,
+      });
     } catch (error) {
-      alert('Дошло је до грешке при регистрацији')
-      console.error('Error:', error)
+      console.error('Error submitting registration:', error);
+      alert('Дошло је до грешке приликом подношења пријаве.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
-
-  const handleMapClick = (e: google.maps.MapMouseEvent) => {
-    if (e.latLng) {
-      setFormData(prev => ({
-        ...prev,
-        location: {
-          lat: e.latLng.lat(),
-          lng: e.latLng.lng(),
-        },
-      }))
-    }
-  }
+  };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                Име и презиме
-              </label>
-              <input
-                type="text"
-                id="name"
-                required
-                value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="municipality" className="block text-sm font-medium text-gray-700">
-                Општина
-              </label>
-              <input
-                type="text"
-                id="municipality"
-                required
-                value={formData.municipality}
-                onChange={(e) => setFormData(prev => ({ ...prev, municipality: e.target.value }))}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="streetName" className="block text-sm font-medium text-gray-700">
-                Улица
-              </label>
-              <input
-                type="text"
-                id="streetName"
-                required
-                value={formData.streetName}
-                onChange={(e) => setFormData(prev => ({ ...prev, streetName: e.target.value }))}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="streetNumber" className="block text-sm font-medium text-gray-700">
-                Број
-              </label>
-              <input
-                type="text"
-                id="streetNumber"
-                required
-                value={formData.streetNumber}
-                onChange={(e) => setFormData(prev => ({ ...prev, streetNumber: e.target.value }))}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          <div className="h-96">
-            <LoadScript googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}>
-              <GoogleMap
-                mapContainerClassName="w-full h-full rounded-lg"
-                center={{ lat: 44.787197, lng: 20.457273 }}
-                zoom={12}
-                onClick={handleMapClick}
-              >
-                {formData.location && (
-                  <Marker position={formData.location} />
-                )}
-              </GoogleMap>
-            </LoadScript>
-          </div>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="space-y-4">
+        <div>
+          <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+            Име и презиме
+          </label>
+          <input
+            type="text"
+            id="name"
+            name="name"
+            required
+            value={formData.name}
+            onChange={handleInputChange}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          />
         </div>
 
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
-          >
-            {loading ? 'Регистрација у току...' : 'Региструј се'}
-          </button>
+        <div>
+          <label htmlFor="municipality" className="block text-sm font-medium text-gray-700">
+            Општина
+          </label>
+          <input
+            type="text"
+            id="municipality"
+            name="municipality"
+            required
+            value={formData.municipality}
+            onChange={handleInputChange}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          />
         </div>
-      </form>
-    </div>
+
+        <div>
+          <label htmlFor="streetName" className="block text-sm font-medium text-gray-700">
+            Улица
+          </label>
+          <input
+            type="text"
+            id="streetName"
+            name="streetName"
+            required
+            value={formData.streetName}
+            onChange={handleInputChange}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="streetNumber" className="block text-sm font-medium text-gray-700">
+            Број
+          </label>
+          <input
+            type="text"
+            id="streetNumber"
+            name="streetNumber"
+            required
+            value={formData.streetNumber}
+            onChange={handleInputChange}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end">
+        <button
+          type="submit"
+          disabled={loading}
+          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+        >
+          {loading ? 'Слање...' : 'Пријави се'}
+        </button>
+      </div>
+    </form>
   )
 } 
