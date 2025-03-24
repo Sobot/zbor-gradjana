@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { GoogleMap, LoadScript, DrawingManager, Marker } from '@react-google-maps/api'
+import { GoogleMap, DrawingManager, Marker } from '@react-google-maps/api'
+import GoogleMapsProvider from './GoogleMapsProvider'
 
 const containerStyle = {
   width: '100%',
@@ -13,8 +14,6 @@ const center = {
   lat: 44.787197, // Belgrade's latitude
   lng: 20.457273  // Belgrade's longitude
 }
-
-const libraries: ("drawing" | "geometry" | "places" | "visualization")[] = ["drawing"]
 
 export default function AssemblyForm() {
   const { data: session } = useSession()
@@ -85,7 +84,7 @@ export default function AssemblyForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700">
           Назив збора
@@ -93,10 +92,10 @@ export default function AssemblyForm() {
         <input
           type="text"
           id="name"
-          required
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           value={formData.name}
           onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          required
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
         />
       </div>
 
@@ -107,10 +106,10 @@ export default function AssemblyForm() {
         <input
           type="datetime-local"
           id="dateTime"
-          required
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           value={formData.dateTime}
           onChange={(e) => setFormData({ ...formData, dateTime: e.target.value })}
+          required
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
         />
       </div>
 
@@ -121,49 +120,43 @@ export default function AssemblyForm() {
         <input
           type="text"
           id="location"
-          required
-          placeholder="Опис локације"
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           value={formData.location}
           onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+          required
+          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
         />
       </div>
 
-      {process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY && (
-        <LoadScript
-          googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
-          libraries={libraries}
-        >
-          <div className="space-y-2">
-            <p className="text-sm text-gray-600">
-              Кликните на мапу да одаберете локацију збора и користите алат за цртање да означите област
-            </p>
-            <GoogleMap
-              mapContainerStyle={containerStyle}
-              center={location || center}
-              zoom={location ? 15 : 10}
-              onClick={handleLocationSelect}
-            >
-              {location && <Marker position={location} />}
-              <DrawingManager
-                onPolygonComplete={(polygon) => {
-                  if (area) {
-                    area.setMap(null)
-                  }
-                  setArea(polygon)
-                }}
-                options={{
-                  drawingControl: true,
-                  drawingControlOptions: {
-                    position: google.maps.ControlPosition.TOP_CENTER,
-                    drawingModes: [google.maps.drawing.OverlayType.POLYGON],
-                  },
-                }}
-              />
-            </GoogleMap>
-          </div>
-        </LoadScript>
-      )}
+      <GoogleMapsProvider>
+        <div className="space-y-2">
+          <p className="text-sm text-gray-600">
+            Кликните на мапу да одаберете локацију збора и користите алат за цртање да означите област
+          </p>
+          <GoogleMap
+            mapContainerStyle={containerStyle}
+            center={location || center}
+            zoom={location ? 15 : 10}
+            onClick={handleLocationSelect}
+          >
+            {location && <Marker position={location} />}
+            <DrawingManager
+              onPolygonComplete={(polygon) => {
+                if (area) {
+                  area.setMap(null)
+                }
+                setArea(polygon)
+              }}
+              options={{
+                drawingControl: true,
+                drawingControlOptions: {
+                  position: google.maps.ControlPosition.TOP_CENTER,
+                  drawingModes: [google.maps.drawing.OverlayType.POLYGON],
+                },
+              }}
+            />
+          </GoogleMap>
+        </div>
+      </GoogleMapsProvider>
 
       <button
         type="submit"

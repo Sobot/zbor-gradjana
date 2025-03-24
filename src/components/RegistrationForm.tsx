@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSession } from 'next-auth/react';
+import GoogleMapsProvider from './GoogleMapsProvider';
 
 interface FormData {
   name: string;
@@ -10,12 +11,6 @@ interface FormData {
   streetNumber: string;
   latitude: number;
   longitude: number;
-}
-
-declare global {
-  interface Window {
-    google: any;
-  }
 }
 
 export default function RegistrationForm() {
@@ -31,30 +26,12 @@ export default function RegistrationForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Load Google Maps JavaScript API
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`;
-    script.async = true;
-    script.defer = true;
-    document.head.appendChild(script);
-
-    return () => {
-      document.head.removeChild(script);
-    };
-  }, []);
-
   const geocodeAddress = async (): Promise<{ lat: number; lng: number }> => {
     return new Promise((resolve, reject) => {
-      if (!window.google) {
-        reject(new Error('Google Maps API not loaded'));
-        return;
-      }
-
-      const geocoder = new window.google.maps.Geocoder();
+      const geocoder = new google.maps.Geocoder();
       const address = `${formData.streetName} ${formData.streetNumber}, ${formData.municipality}, Serbia`;
 
-      geocoder.geocode({ address }, (results: any[], status: string) => {
+      geocoder.geocode({ address }, (results, status) => {
         if (status === 'OK' && results?.[0]) {
           const location = results[0].geometry.location;
           resolve({
@@ -129,8 +106,8 @@ export default function RegistrationForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-4">
+    <GoogleMapsProvider>
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700">
             Име и презиме
@@ -139,9 +116,9 @@ export default function RegistrationForm() {
             type="text"
             id="name"
             name="name"
-            required
             value={formData.name}
             onChange={handleInputChange}
+            required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
@@ -154,9 +131,9 @@ export default function RegistrationForm() {
             type="text"
             id="municipality"
             name="municipality"
-            required
             value={formData.municipality}
             onChange={handleInputChange}
+            required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
@@ -169,9 +146,9 @@ export default function RegistrationForm() {
             type="text"
             id="streetName"
             name="streetName"
-            required
             value={formData.streetName}
             onChange={handleInputChange}
+            required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
@@ -184,29 +161,25 @@ export default function RegistrationForm() {
             type="text"
             id="streetNumber"
             name="streetNumber"
-            required
             value={formData.streetNumber}
             onChange={handleInputChange}
+            required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
         </div>
-      </div>
 
-      {error && (
-        <div className="text-red-600 text-sm">
-          {error}
-        </div>
-      )}
+        {error && (
+          <div className="text-red-600 text-sm">{error}</div>
+        )}
 
-      <div className="flex justify-end">
         <button
           type="submit"
           disabled={loading}
-          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400"
         >
           {loading ? 'Слање...' : 'Пријави се'}
         </button>
-      </div>
-    </form>
+      </form>
+    </GoogleMapsProvider>
   );
 } 
