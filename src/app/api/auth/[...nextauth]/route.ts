@@ -1,8 +1,8 @@
-import NextAuth, { DefaultSession } from "next-auth";
+import NextAuth, { DefaultSession, Session } from "next-auth";
+import type { JWT } from "next-auth/jwt";
 import GoogleProvider from "next-auth/providers/google";
-import FacebookProvider from "next-auth/providers/facebook";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
 declare module "next-auth" {
   interface Session {
@@ -12,34 +12,36 @@ declare module "next-auth" {
   }
 }
 
-const prisma = new PrismaClient();
-
-const handler = NextAuth({
+export const authOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_ID!,
       clientSecret: process.env.GOOGLE_SECRET!,
     }),
-    FacebookProvider({
-      clientId: process.env.FACEBOOK_ID!,
-      clientSecret: process.env.FACEBOOK_SECRET!,
-    }),
   ],
   pages: {
     signIn: '/auth/signin',
   },
   session: {
-    strategy: "jwt",
+    strategy: "jwt" as const,
   },
   callbacks: {
-    async session({ session, token }) {
+    async jwt({ token, user }: { token: JWT; user: any }) {
+      if (user) {
+        token.id = user.id;
+      }
+      return token;
+    },
+    async session({ session, token }: { session: Session; token: JWT }) {
       if (session?.user) {
-        session.user.id = token.sub!;
+        session.user.id = token.id as string;
       }
       return session;
     },
   },
-});
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST }; 
