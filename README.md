@@ -2,6 +2,7 @@
 
 Платформа за регистрацију збора грађана у општинама Србије.
 **Тренутно се налази у развојној фази.**
+https://github.com/Sobot/zbor-gradjana
 
 Развој је започет у оквиру ове гране [https://github.com/Sobot/zbor-gradjana/tree/development](https://github.com/Sobot/zbor-gradjana/tree/development).
 
