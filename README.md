@@ -17,7 +17,7 @@ https://github.com/Sobot/zbor-gradjana
 
 ## Законски оквир
 
-- [Закон о локалној самоуправи](https://pravno-informacioni-sistem.rs/eli/rep/sgrs/skupstina/zakon/2007/129/2/reg)
+- [Закон о локалној самоуправи - Члан 67](https://pravno-informacioni-sistem.rs/eli/rep/sgrs/skupstina/zakon/2007/129/2/reg)
    ```
    III. НЕПОСРЕДНО УЧЕШЋЕ ГРАЂАНА У ОСТВАРИВАЊУ ЛОКАЛНЕ САМОУПРАВЕ
 
@@ -30,7 +30,7 @@ https://github.com/Sobot/zbor-gradjana
    
    Облици непосредне самоуправе из става 1. овог члана уређују се законом и статутом.
    ```
-- [СТАТУТ ГРАДСКЕ ОПШТИНЕ ВРАЧАР](https://pravno-informacioni-sistem.rs/eli/rep/sgrs/skupstina/zakon/2007/129/2/reg)
+- [СТАТУТ ГРАДСКЕ ОПШТИНЕ ВРАЧАР - Члан 56](https://pravno-informacioni-sistem.rs/eli/rep/sgrs/skupstina/zakon/2007/129/2/reg)
    ```
   Члан 56.
   
